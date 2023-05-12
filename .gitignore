@@ -1,5 +1,83 @@
-cache
-cache-downloads
-inspector
-api
-source/inspector.html
+import requests
+
+from bs4 import BeautifulSoup
+
+import json
+
+import time
+
+def get_hero_kda(hero_name, player_name):
+
+    url = 'https://www.dotabuff.com/heroes/{}/players?player_name={}'.format(hero_name, player_name)
+
+    response = requests.get(url)
+
+    soup = BeautifulSoup(response.content, 'html.parser')
+
+    kda_table = soup.find_all('table', class_='sortable')
+
+    if not kda_table:
+
+        return "К сожалению, у нас нет статистики для этого героя."
+
+    kda_rows = kda_table[0].find_all('tr')[1:]
+
+    kda_dict = {}
+
+    for row in kda_rows:
+
+        columns = row.find_all('td')
+
+        kda = columns[3].text.strip()
+
+        games_played = columns[2].text.strip()
+
+        hero_name = columns[1].text.strip()
+
+        kda_dict[hero_name] = (kda, games_played)
+
+    return kda_dict
+
+def get_player_kda(player_name):
+
+    url = 'https://www.dotabuff.com/players/{}/heroes'.format(player_name)
+
+    headers = {
+
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'}
+
+    response = requests.get(url, headers=headers)
+
+    soup = BeautifulSoup(response.content, 'html.parser')
+
+    kda_div = soup.find_all('div', class_='header-stat')
+
+    kda = kda_div[0].find_all('div')[1].text.strip()
+
+    return kda
+
+def get_desired_kda(hero_name, desired_kda, player_name):
+
+    kda_dict = get_hero_kda(hero_name, player_name)
+
+    if isinstance(kda_dict, str):
+
+        return kda_dict
+
+    for hero, kda in kda_dict.items():
+
+        curr_kda = float(kda[0])
+
+        games_played = int(kda[1])
+
+        desired_games = int(games_played * curr_kda / desired_kda)
+
+        print("Для героя {}, нужно сыграть {} игр, чтобы достичь желаемого KDA {}.".format(hero, desired_games, desired_kda))
+
+def telegram_bot(token):
+
+    url = "https://api.telegram.org/bot{}/".format(token)
+
+    while True:
+
+        # получаем обновления от Telegram
